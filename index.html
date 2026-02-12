@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directorio Corporativo</title>
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Directorio de empresas, bancos y operadoras.">
+    <link rel="manifest" href="manifest.json">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.6.2/fuse.min.js"></script>
+
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --label: #64748b; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        
+        /* Contenedor Principal */
+        .container { width: 100%; max-width: 600px; }
+        
+        /* Buscador */
+        .search-box { position: sticky; top: 10px; z-index: 100; margin-bottom: 20px; }
+        input { 
+            width: 100%; 
+            padding: 16px; 
+            border-radius: 12px; 
+            border: 1px solid #cbd5e1; 
+            font-size: 16px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            outline: none; 
+            box-sizing: border-box; 
+            background: white;
+        }
+        input:focus { border-color: var(--primary); ring: 2px solid var(--primary); }
+
+        /* Tarjetas de Resultados */
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            transition: transform 0.2s; 
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        .card h2 { margin: 0 0 12px 0; color: var(--primary); font-size: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+        
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; line-height: 1.4; }
+        .label { font-weight: 600; color: var(--label); min-width: 80px; }
+        .value { text-align: right; max-width: 70%; word-break: break-word; color: #334155; }
+        
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Estado Offline/Loading */
+        #status { text-align: center; font-size: 0.85rem; color: var(--label); margin-top: 20px; padding-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Buscar empresa (ej. Bitel, BCP)...">
+    </div>
+    <div id="results"></div>
+    <div id="status">Conectando con la base de datos...</div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. CONFIGURACIÓN (¡EDITA ESTO!)
+    // ==========================================
+    
+    // PEGA AQUÍ TU ENLACE DE GOOGLE SHEETS (Debe terminar en output=csv)
+    const DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvSket0u_d7haAqdE2w0nwNs1GHE_6iyS8E6xQl_H-V7nWaf4RaiVdO9TAGkEWeGvBpbEqU_c936qn/pub?gid=0&single=true&output=csv'; 
+    
+    // ==========================================
+
+    let db = [];
+    let fuse;
+
+    // --- 2. OBTENER DATOS ---
+    async function fetchData() {
+        const statusDiv = document.getElementById('status');
+        try {
+            const response = await fetch(DATA_URL);
+            if (!response.ok) throw new Error("Error de red");
+            const csvText = await response.text();
+            
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    db = results.data;
+                    initSearchEngine();
+                    statusDiv.innerText = `Base de datos actualizada. ${db.length} empresas encontradas.`;
+                }
+            });
+        } catch (error) {
+            console.error(error);
+            // Si falla la red, intenta ver si hay algo en caché visual (opcional)
+            // o simplemente avisa que está offline.
+            statusDiv.innerText = "Modo Offline: No se pudo actualizar la base de datos.";
+        }
+    }
+
+    // --- 3. INICIAR MOTOR DE BÚSQUEDA (Fuse.js) ---
+    function initSearchEngine() {
+        const options = {
+            includeScore: true,
+            threshold: 0.3, // Sensibilidad: 0.0 exacto, 1.0 cualquier cosa. 0.3 es ideal para typos.
+            keys: ['Empresa', 'RUC', 'Palabras Clave'] // Columnas donde buscará
+        };
+        fuse = new Fuse(db, options);
+        renderResults(db); // Mostrar todo al inicio
+    }
+
+    // --- 4. RENDERIZADO DE TARJETAS ---
+    const resultsDiv = document.getElementById('results');
+    const input = document.getElementById('searchInput');
+
+    input.addEventListener('input', (e) => {
+        const term = e.target.value;
+        if (!term) {
+            renderResults(db);
+            return;
+        }
+        const results = fuse.search(term);
+        renderResults(results.map(r => r.item));
+    });
+
+    function renderResults(data) {
+        resultsDiv.innerHTML = '';
+        if (data.length === 0) {
+            resultsDiv.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:20px;">No se encontraron resultados.</div>';
+            return;
+        }
+
+        data.forEach(item => {
+            if(!item.Empresa) return; 
+
+            // Construcción del HTML de la tarjeta
+            const html = `
+                <div class="card">
+                    <h2>${item.Empresa}</h2>
+                    
+                    <div class="data-row">
+                        <span class="label">RUC:</span> 
+                        <span class="value">${item.RUC || '-'}</span>
+                    </div>
+                    
+                    <div class="data-row">
+                        <span class="label">Dirección:</span> 
+                        <span class="value">${item.Dirección || '-'}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="label">Teléfono:</span> 
+                        <span class="value"><a href="tel:${item.Teléfono}">${item.Teléfono || '-'}</a></span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="label">Web:</span> 
+                        <span class="value"><a href="${item.Web}" target="_blank">${item.Web ? 'Visitar Sitio' : '-'}</a></span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="label">Email:</span> 
+                        <span class="value"><a href="mailto:${item['Email Oficial']}">${item['Email Oficial'] || '-'}</a></span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="label">Contacto:</span> 
+                        <span class="value">${item['Email Contacto'] || '-'}</span>
+                    </div>
+                </div>
+            `;
+            resultsDiv.innerHTML += html;
+        });
+    }
+
+    // --- 5. REGISTRAR SERVICE WORKER (PWA) ---
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('Service Worker Registrado'))
+            .catch(err => console.log('Error SW:', err));
+    }
+
+    // Iniciar
+    fetchData();
+</script>
+
+</body>
+</html>
