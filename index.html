@@ -75,8 +75,12 @@
     // ==========================================
     // CONFIGURACIÓN DE DATOS
     // ==========================================
+    
+    // ¡RECUERDA PEGAR TU ENLACE DE GOOGLE SHEETS AQUÍ!
     const DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa6eHPi0Fk9UJZaa50W-mN30bkDIkWbJgTtcZNeCbWMWDeg6afrOCu4KKlwlTreEveZYL2P4RJXK7h/pub?output=csv'; 
     
+    // ==========================================
+
     let db = [];
     let currentRenderedData = [];
     let fuse;
@@ -103,7 +107,7 @@
                 complete: (results) => {
                     db = results.data;
                     initSearchEngine();
-                    // 4. Texto del pie de página actualizado
+                    // Texto del pie de página actualizado
                     statusDiv.innerText = `Base de datos actualizada al ${getFormattedDate()} ©VMSiuP`;
                 }
             });
@@ -140,13 +144,22 @@
         data.forEach((item, index) => {
             if(!item.Empresa) return; 
 
+            // --- CORRECCIÓN: Asegurar que la URL empiece con http o https ---
+            let webUrl = item.Web ? item.Web.trim() : '';
+            if (webUrl && !webUrl.startsWith('http')) {
+                webUrl = 'https://' + webUrl;
+            }
+            // ----------------------------------------------------------------
+
             const html = `
                 <div class="card">
                     <h2>${item.Empresa}</h2>
                     <div class="data-row"><span class="label">RUC:</span> <span class="value">${item.RUC || '-'}</span></div>
                     <div class="data-row"><span class="label">Dirección:</span> <span class="value">${item.Dirección || '-'}</span></div>
                     <div class="data-row"><span class="label">Teléfono:</span> <span class="value"><a href="tel:${item.Teléfono}">${item.Teléfono || '-'}</a></span></div>
-                    <div class="data-row"><span class="label">Web:</span> <span class="value"><a href="${item.Web}" target="_blank">${item.Web ? 'Visitar Sitio' : '-'}</a></span></div>
+                    
+                    <div class="data-row"><span class="label">Web:</span> <span class="value">${webUrl ? `<a href="${webUrl}" target="_blank">Visitar Sitio</a>` : '-'}</span></div>
+                    
                     <div class="data-row"><span class="label">Email Oficial:</span> <span class="value"><a href="mailto:${item['Email Oficial']}">${item['Email Oficial'] || '-'}</a></span></div>
                     <div class="data-row"><span class="label">Contacto:</span> <span class="value">${item['Email Contacto'] || '-'}</span></div>
                     
@@ -196,4 +209,3 @@
 
 </body>
 </html>
-
