@@ -1,4 +1,4 @@
-const CACHE_NAME = 'directorio-v1';
+const CACHE_NAME = 'directorio-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -32,4 +32,5 @@ self.addEventListener('fetch', (e) => {
       }
     })()
   );
+
 });
