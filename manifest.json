@@ -1,5 +1,5 @@
 {
-  "name": "Directorio Empresas",
+  "name": "Directorio MP",
   "short_name": "Directorio",
   "start_url": "./index.html",
   "display": "standalone",
@@ -7,8 +7,8 @@
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/25/25694.png", 
-      "sizes": "192x192",
+      "src": "./logo-app.png", 
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
